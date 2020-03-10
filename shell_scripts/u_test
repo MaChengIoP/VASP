@@ -1,0 +1,80 @@
+#!/bin/sh
+gap_get(){
+imformation=$(sed -n '6p' DOSCAR)
+E_fermi=$(echo $imformation | awk '{print $4}')
+NEDOS=$(echo $imformation | awk '{print $3}')
+ISPIN=$(grep 'ISPIN' OUTCAR | awk '{print $3}')
+row=7
+while [ $row -lt $((NEDOS+7)) ]
+do
+	energy=$(sed -n "${row}p" DOSCAR | awk '{print $1}')
+	if [ $(echo "$energy > $E_fermi" | bc) = 1 ]
+	then
+		if [ $ISPIN -eq 1 ]
+		then
+			tot=$(sed -n "${row}p" DOSCAR | awk '{print $2}')
+		else
+			up=$(sed -n "${row}p" DOSCAR | awk '{print $2}')
+			down=$(sed -n "${row}p" DOSCAR | awk '{print $3}')
+			tot=$(echo "$up $down" | awk '{printf"%f", ($1+$2)}')
+		fi	
+		if [ $(echo "$tot > 0" | bc) = 1 ]
+		then
+			break
+		else
+			top=$energy
+		fi
+	fi
+row=$((row+1))
+done
+if [ $top ]
+then
+	gap=$(echo "$top - $E_fermi" | bc)
+	gap=${gap#-}
+	return 1
+else
+	return 0
+fi
+}
+if [ $1 ]
+then
+	target_gap=$1
+	echo DFT+U test >> output
+	echo target gap: $target_gap >> output
+	printf "%9s%12s\n" U gap >> output
+	U=.0
+	if [ $2 ]
+	then
+		U_gap=$2
+	else
+		U_gap=.5
+	fi
+	last_U=U_test
+	last_delta_gap=$target_gap
+	while :
+	do
+		sed -i "`awk '/LDAUU/ {print FNR}' INCAR`s/$last_U/$U/" INCAR
+		yhrun vasp_std
+		gap_get
+		if [ $? = 1 ]
+		then
+			printf "%9.1f%12.4f\n" $U $gap >> output
+			delta_gap=$(echo "$gap - $target_gap" | bc)
+			delta_gap=${delta_gap#-}
+			if [ $(echo "$delta_gap > $last_delta_gap" | bc) = 1 ]
+			then
+				echo best U: $last_U >> output
+				break
+			fi
+			last_U=$U
+			last_delta_gap=$delta_gap
+			U=$(echo "$U + $U_gap" | bc)
+		else
+			echo error: no gap >> output
+			exit 0
+		fi
+	done
+	sed -i "`awk '/LDAUU/ {print FNR}' INCAR`s/$U/U_test/" INCAR
+else
+	echo please give target gap >> output
+fi

@@ -1,0 +1,12 @@
+#!/bin/bash
+input=$@
+filename="dos."$(echo $input | sed 's/ /./g')
+file_sample=$1
+ncolume=$(head -n 1 $file_sample | awk '{print NF}')
+nrow=$(wc -l $file_sample | awk '{print $1}')
+natom=$(echo $input | wc -w)
+paste $input > dos.tmpall
+sed -n '1 p' $file_sample > dos.tmptitle
+cat dos.tmpall | awk '{if(NR == 1){}else{printf "%8.4f", $1;for(i = 2;i <= '$ncolume'; i++) {a = 0; for(j = 1; j <= '$natom'; j++){a = a + $((j - 1) * '$ncolume' + i)}printf "%13.4e", a}printf "\n"}}' > dos.tmp
+cat dos.tmptitle dos.tmp > $filename
+rm -rf dos.tmp*

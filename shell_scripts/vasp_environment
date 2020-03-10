@@ -1,0 +1,7 @@
+#!/bin/sh
+export LC_ALL=C
+export I_MPI_FABRICS=shm:tcp
+source /PARA/app/scripts/cn-module.sh
+source /PARA/app/other/vasp.5.4.4/vasp-module.sh
+module load vasp/5.4.4
+export PATH=/PARA/blsc621/tool/bin:$PATH

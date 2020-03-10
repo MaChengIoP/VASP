@@ -1,0 +1,48 @@
+#!/bin/sh
+echo encut converging >> output
+std_encut=$(grep 'ENCUT' INCAR | awk '{print $3; exit}')
+echo std_encut:$std_encut >> output
+if [ $1 ]
+then
+	target_delta=$1
+else
+	target_delta=.002
+fi
+delta=.999999
+coefficient=0.9
+time=0
+while [ $(echo "$coefficient < 2" | bc) = 1 ]
+do
+	if [ $time -eq 0 ]
+	then
+		echo target delta: $target_delta >> output
+		printf "%9s%12s%12s\n" encut energy delta >> output
+		time=1
+		encut=$(echo "$std_encut * $coefficient" | bc)
+		sed -i "`awk '/ENCUT/ {print FNR}' INCAR`s/`grep 'ENCUT' INCAR | awk '{print $3}'`/$encut/" INCAR
+		yhrun vasp_std
+		energy=$(grep "TOTEN" OUTCAR | tail -1 | awk '{printf "%12.6f\n", $5}')
+		printf "%9.1f%12f%12f\n" $encut $energy $delta >> output
+		last_energy=$energy
+	else
+		coefficient=$(echo "$coefficient + 0.1" | bc)
+		encut=$(echo "$std_encut * $coefficient" | bc)
+		sed -i "`awk '/ENCUT/ {print FNR}' INCAR`s/`grep 'ENCUT' INCAR | awk '{print $3}'`/$encut/" INCAR
+		yhrun vasp_std
+		energy=$(grep "TOTEN" OUTCAR | tail -1 | awk '{printf "%12.6f\n", $5}')
+		delta=$(echo "$energy - $last_energy" | bc)
+		delta=${delta#-}
+		printf "%9.1f%12f%12f\n" $encut $energy $delta >> output
+		last_energy=$energy
+		if [ $(echo "$delta <= $target_delta" | bc) = 1 ]
+		then
+			echo encut converged at ${coefficient}*std_encut >> output
+			break
+		fi
+	fi
+done
+if [ $(echo "$delta > $target_delta" | bc) = 1 ]
+then
+	echo encut did not converge >> output
+fi
+

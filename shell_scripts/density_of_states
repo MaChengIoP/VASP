@@ -1,0 +1,50 @@
+#!/bin/bash
+if [ ! -r PROCAR ]
+then
+	echo can not read PROCAR >> output
+else
+	imformation=$(sed -n '6p' DOSCAR)
+	E_fermi=$(echo $imformation | awk '{print $4}')
+	NEDOS=$(echo $imformation | awk '{print $3}')
+	N=$(grep "$imformation" DOSCAR | wc -l)
+	DIR="pdos"
+	rm -rf $DIR
+	mkdir $DIR
+	awk '/'"$imformation"'/{for (j = 1; j <= '$NEDOS'; j++){getline; printf "%8.4f", $1-('$E_fermi'); for (k = 2; k <= NF; k++){printf "%13.4e", $k;} printf "\n";}}' DOSCAR > dos_all
+	ISPIN=$(grep 'ISPIN' OUTCAR | awk '{print $3}')
+	input=""
+	if [ $ISPIN -eq 1 ]
+	then
+		start=1
+		end=$NEDOS
+		printf "%8s%13s%13s\n" "E(eV)" "TDoS" "Sum-TDoS" > ./$DIR/0
+		sed -n ''$start', '$end' p' dos_all >> ./$DIR/0
+		title=$(grep 'ion' PROCAR | grep 'tot' | head -n 1 | sed 's/ion//' | sed 's/tot//' | awk '{{printf "%8s", "E(eV)";}for(i=1;i<=NF;i++){printf "%13s", $i;}}')
+		for ((atom = 1; atom < $N; atom++))
+		do
+			input=$input" "$atom
+			start=$(echo "$NEDOS * $atom + 1" | bc)
+			end=$(echo "$NEDOS * ($atom + 1)" | bc)
+			echo $title |  awk '{{printf "%8s", $1}for(i=2;i<=NF;i++){printf "%13s", $i}{printf "\n"}}' > ./$DIR/$atom
+			sed -n ''$start', '$end' p' "dos_all" >> ./$DIR/$atom
+		done
+	elif [ $ISPIN -eq 2 ]
+	then
+		start=1
+		end=$NEDOS
+		printf "%8s%13s%13s%13s%13s\n"  "E(eV)" "Spin(up)" "Spin(down)" "Sum(up)" "Sum(down)" > ./$DIR/0
+		sed -n ''$start', '$end' p' dos_all >> ./$DIR/0
+		title=$(grep 'ion' PROCAR | grep 'tot' | head -n 1 | sed 's/ion//' | sed 's/tot//' | awk '{{printf "%8s", "E(eV)";}for(i=1;i<=NF;i++){printf "%13s%13s", $i"(up)", $i"(down)";}}')
+		for ((atom = 1; atom < $N; atom++))
+		do
+			input=$input" "$atom
+			start=$(echo "$NEDOS * $atom + 1" | bc)
+			end=$(echo "$NEDOS * ($atom + 1)" |bc)
+			echo $title |  awk '{{printf "%8s", $1}for(i=2;i<=NF;i++){printf "%13s", $i}{printf "\n"}}' > ./$DIR/$atom
+			sed -n ''$start', '$end' p' "dos_all" >> ./$DIR/$atom
+		done
+	fi
+rm dos_all
+cd ./$DIR
+specified_dos $input
+fi

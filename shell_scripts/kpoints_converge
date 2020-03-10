@@ -1,0 +1,62 @@
+#!/bin/sh
+echo kpoints converging >> output
+coefficient=$(awk 'NR == 2{print($1)}' POSCAR)
+a=$(echo "scale = 3; `awk 'NR == 3{print($1)}' POSCAR` * $coefficient / 1" | bc)
+b=$(echo "scale = 3; `awk 'NR == 4{print($2)}' POSCAR` * $coefficient / 1" | bc)
+c=$(echo "scale = 3; `awk 'NR == 5{print($3)}' POSCAR` * $coefficient / 1" | bc)
+echo $a $b $c >> output
+if [ $1 ]
+then
+	target_delta=$1
+else
+	target_delta=.002
+fi
+for product in 10 15 25 40
+do
+	if [ $product -eq 10 ]
+	then
+		echo target delta: $target_delta >> output
+		printf "%9s%12s%12s\n" k_mesh energy delta >> output
+		delta=.999999
+		A=$(echo "scale = 1; $product / $a" | bc | awk '{print int($1 + 0.5)}')
+		B=$(echo "scale = 1; $product / $b" | bc | awk '{print int($1 + 0.5)}')
+		C=$(echo "scale = 1; $product / $c" | bc | awk '{print int($1 + 0.5)}')
+		cat > KPOINTS << !
+automatic
+0
+Gamma
+$A $B $C
+0.0 0.0 0.0
+!
+		yhrun vasp_std
+		energy=$(grep "TOTEN" OUTCAR | tail -1 | awk '{printf "%12.6f\n", $5}')
+		printf "%3d%3d%3d%12f%12f\n" $A $B $C $energy $delta >> output
+		last_energy=$energy
+	else
+		A=$(echo "scale = 1; $product / $a" | bc | awk '{print int($1 + 0.5)}')
+		B=$(echo "scale = 1; $product / $b" | bc | awk '{print int($1 + 0.5)}')
+		C=$(echo "scale = 1; $product / $c" | bc | awk '{print int($1 + 0.5)}')
+		cat > KPOINTS << !
+automatic
+0
+Gamma
+$A $B $C
+0.0 0.0 0.0
+!
+		yhrun vasp_std
+		energy=$(grep "TOTEN" OUTCAR | tail -1 | awk '{printf "%12.6f\n", $5}')
+		delta=$(echo "$energy - $last_energy" | bc)
+		delta=${delta#-}
+		printf "%3d%3d%3d%12f%12f\n" $A $B $C $energy $delta >> output
+                last_energy=$energy
+		if [ $(echo "$delta <= $target_delta" | bc) = 1 ]
+		then
+			echo kpoints converged at product = ${product} >> output
+			break
+		fi
+	fi
+done
+if [ $(echo "$delta > $target_delta" | bc) = 1 ]
+then
+	echo kpoints did not converge >> output
+fi

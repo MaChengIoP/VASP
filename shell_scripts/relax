@@ -1,0 +1,10 @@
+#!/bin/sh
+yhrun vasp_std
+if [ `grep -c 'reached required accuracy' ./OUTCAR` -ne 0 ]
+then
+	cp POSCAR INI_POSCAR
+	cp CONTCAR POSCAR
+	echo relax finished >> output
+else
+	echo relax failed >> output
+fi

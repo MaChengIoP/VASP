@@ -1,0 +1,50 @@
+#!/bin/sh
+echo sigma converging >> output
+delta=.999999
+sigma=.00
+time=0
+while [ $(echo "$sigma <= .2" | bc) = 1 ]
+do
+	if [ $time -eq 0 ]
+	then
+		printf "%9s%12s%12s\n" sigma energy delta >> output
+		time=1
+		sed -i "`awk '/SIGMA/ {print FNR}' INCAR`s/`grep 'SIGMA' INCAR | awk '{print $3}'`/$sigma/" INCAR
+		yhrun vasp_std
+		energy=$(grep "TOTEN" OUTCAR | tail -1 | awk '{printf "%12.6f\n", $5}')
+		printf "%9.2f%12f%12f\n" $sigma $energy $delta >> output
+		last_energy=$energy
+	elif [$time -eq 1]
+	then
+		time=2
+		sigma=$(echo "$sigma + .01" | bc)
+		sed -i "`awk '/SIGMA/ {print FNR}' INCAR`s/`grep 'SIGMA' INCAR | awk '{print $3}'`/$sigma/" INCAR
+		yhrun vasp_std
+		energy=$(grep "TOTEN" OUTCAR | tail -1 | awk '{printf "%12.6f\n", $5}')
+		delta=$(echo "$energy - $last_energy" | bc)
+		delta=${delta#-}
+		printf "%9.2f%12f%12f\n" $sigma $energy $delta >> output
+		last_energy=$energy
+		last_delta=$delta
+	else
+		sigma=$(echo "$sigma + .01" | bc)
+                sed -i "`awk '/SIGMA/ {print FNR}' INCAR`s/`grep 'SIGMA' INCAR | awk '{print $3}'`/$sigma/" INCAR
+                yhrun vasp_std
+                energy=$(grep "TOTEN" OUTCAR | tail -1 | awk '{printf "%12.6f\n", $5}')
+                delta=$(echo "$energy - $last_energy" | bc)
+                delta=${delta#-}
+                printf "%9.2f%12f%12f\n" $sigma $energy $delta >> output
+		if [ $(echo "$delta >= $last_delta" | bc) = 1 ]
+		then
+			sigma=$(echo "$sigma - .01" | bc)
+			sed -i "`awk '/SIGMA/ {print FNR}' INCAR`s/`grep 'SIGMA' INCAR | awk '{print $3}'`/$sigma/" INCAR
+			echo sigma converged at 0$sigma >> output
+			exit 1
+		else
+			last_energy=$energy
+			last_delta=$delta
+		fi
+	fi
+done
+echo sigma did not converge >> output
+
