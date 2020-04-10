@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['vasp_helper.py'],
-             pathex=['C:\\Users\\Lenovo\\Desktop\\python\\vasp_helper'],
+             pathex=['D:\\Data\\GitHub\\VASP\\vasp_helper'],
              binaries=[],
              datas=[],
              hiddenimports=[],
@@ -30,4 +30,4 @@ exe = EXE(pyz,
           upx=True,
           upx_exclude=[],
           runtime_tmpdir=None,
-          console=False , icon='mc.ico')
+          console=False , icon='vasp_helper.ico')

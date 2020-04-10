@@ -66,10 +66,10 @@ def Read_POSCAR(POSCAR_button, main_frame_window):
             target_element.name_label.pack(pady = 10)
             target_element.electrons_label = tk.Label(target_element.frame, text = '{}'.format(target_element.electrons), fg = 'white', bg = 'green', font = ('Arial',10))
             target_element.electrons_label.pack()
-            if 'd' in target_element.electrons:
+            if 'd' in target_element.electrons and 'd10' not in target_element.electrons:
                 target_element.name_label.config(bg = 'purple')
                 target_element.electrons_label.config(bg = 'purple')
-            if 'f' in target_element.electrons:
+            if 'f' in target_element.electrons and 'f14' not in target_element.electrons:
                 target_element.name_label.config(bg = 'red')
                 target_element.electrons_label.config(bg = 'red')
     def Untag():#删除元素信息Label控件
@@ -100,6 +100,16 @@ def Read_POSCAR(POSCAR_button, main_frame_window):
                         ENMAX.extend([element.enmax])
         MAX_ENMAX = max(ENMAX)
         ENCUT.value = MAX_ENMAX
+    def Get_unitcell_constant():
+        global A_constant
+        global B_constant
+        global C_constant
+        A_constant = ((float(POSCAR[2].strip().split()[0])**2 + float(POSCAR[2].strip().split()[1])**2 + float(POSCAR[2].strip().split()[2])**2)**0.5)*float(POSCAR[1])
+        B_constant = ((float(POSCAR[3].strip().split()[0])**2 + float(POSCAR[3].strip().split()[1])**2 + float(POSCAR[3].strip().split()[2])**2)**0.5)*float(POSCAR[1])
+        C_constant = ((float(POSCAR[4].strip().split()[0])**2 + float(POSCAR[4].strip().split()[1])**2 + float(POSCAR[4].strip().split()[2])**2)**0.5)*float(POSCAR[1])
+        #print(A_constant)
+        #print(B_constant)
+        #print(C_constant)
     global POSCAR#POSCAR可能被多个函数读
     global POSCAR_path#生成POSCAR时需要原文件路径
     Target_Elements.clear()#每次进入都要清空重读
@@ -113,6 +123,7 @@ def Read_POSCAR(POSCAR_button, main_frame_window):
         if POSCAR_is_ready:#检查无误后找到目标元素的POTCAR并提取出ENMAX值
             Count_atoms()
             Get_ENMAX()
+            Get_unitcell_constant()
             POSCAR_button.config(bg = 'green')
             Tag()
             return True
@@ -143,9 +154,9 @@ def Creat_KPOINTS(job):
     with open('{}\KPOINTS'.format(work_path), 'w', newline = '\n', encoding = 'utf-8') as KPOINTS:
         KPOINTS.write('automatic\n0\nGamma\n')#此处用的都是以Gamma点为中心自动生成K点的方式
         if job == 'easy_relax' or job == 'main_converge_test' or job == 'encut_converge_test' or job == 'sigma_converge_test' or job == 'kpoints_converge_test' or job == 'density_of_states' or job == 'u_test':
-            K_mesh = '{} {} {}\n0.0 0.0 0.0\n'.format(int(25.0/(float(POSCAR[1])*float(POSCAR[2].split()[0]))), int(25.0/(float(POSCAR[1])*float(POSCAR[3].split()[1]))), int(25.0/(float(POSCAR[1])*float(POSCAR[4].split()[2]))))
+            K_mesh = '{} {} {}\n0.0 0.0 0.0\n'.format(int(25.0/A_constant), int(25.0/B_constant), int(25.0/C_constant))
         if job == 'hard_relax' or job == 'complex_relax' or job == 'self_consistent_filed':
-            K_mesh = '{} {} {}\n0.0 0.0 0.0\n'.format(int(40.0/(float(POSCAR[1])*float(POSCAR[2].split()[0]))), int(40.0/(float(POSCAR[1])*float(POSCAR[3].split()[1]))), int(40.0/(float(POSCAR[1])*float(POSCAR[4].split()[2]))))
+            K_mesh = '{} {} {}\n0.0 0.0 0.0\n'.format(int(40.0/A_constant), int(40.0/B_constant), int(40.0/C_constant))
         KPOINTS.write(K_mesh)
 
 def Creat_script(job):
@@ -840,6 +851,13 @@ def Pre_read_POSCAR(POSCAR_button, main_frame_window):
                         ENMAX.extend([element.enmax])
         MAX_ENMAX = max(ENMAX)
         ENCUT.value = MAX_ENMAX
+    def Get_unitcell_constant():
+        global A_constant
+        global B_constant
+        global C_constant
+        A_constant = ((float(POSCAR[2].strip().split()[0])**2 + float(POSCAR[2].strip().split()[1])**2 + float(POSCAR[2].strip().split()[2])**2)**0.5)*float(POSCAR[1])
+        B_constant = ((float(POSCAR[3].strip().split()[0])**2 + float(POSCAR[3].strip().split()[1])**2 + float(POSCAR[3].strip().split()[2])**2)**0.5)*float(POSCAR[1])
+        C_constant = ((float(POSCAR[4].strip().split()[0])**2 + float(POSCAR[4].strip().split()[1])**2 + float(POSCAR[4].strip().split()[2])**2)**0.5)*float(POSCAR[1])
     if len(sys.argv) == 2:
         global POSCAR#POSCAR可能被多个函数读
         global POSCAR_path#生成POSCAR时需要原文件路径
@@ -851,6 +869,7 @@ def Pre_read_POSCAR(POSCAR_button, main_frame_window):
         if POSCAR_is_ready:#检查无误后找到目标元素的POTCAR并提取出ENMAX值
             Count_atoms()
             Get_ENMAX()
+            Get_unitcell_constant()
             POSCAR_button.config(bg = 'green')
             Tag()
             return True
